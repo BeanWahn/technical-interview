@@ -1,0 +1,164 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Carbon\Carbon;
+
+class SecretShare extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'token',
+        'secret_id',
+        'shared_by_user_id',
+        'encrypted_content',
+        'sharing_key',
+        'expires_at',
+        'accessed_at',
+        'accessed_ip',
+        'is_used',
+        'max_access_count',
+        'access_count',
+        'notes'
+    ];
+
+    protected $casts = [
+        'expires_at' => 'datetime',
+        'accessed_at' => 'datetime',
+        'is_used' => 'boolean',
+        'max_access_count' => 'integer',
+        'access_count' => 'integer'
+    ];
+
+    protected $hidden = [
+        'sharing_key',
+        'encrypted_content'
+    ];
+
+    /**
+     * Get the secret that is being shared.
+     */
+    public function secret()
+    {
+        return $this->belongsTo(Secret::class);
+    }
+
+    /**
+     * Get the user who shared the secret.
+     */
+    public function sharedByUser()
+    {
+        return $this->belongsTo(User::class, 'shared_by_user_id');
+    }
+
+    /**
+     * Check if the share is expired.
+     */
+    public function isExpired()
+    {
+        return $this->expires_at->isPast();
+    }
+
+    /**
+     * Check if the share can still be accessed.
+     */
+    public function canBeAccessed()
+    {
+        return !$this->isExpired() &&
+               !$this->is_used &&
+               $this->access_count < $this->max_access_count;
+    }
+
+    /**
+     * Mark the share as accessed.
+     */
+    public function markAsAccessed($ip = null)
+    {
+        $this->update([
+            'accessed_at' => now(),
+            'accessed_ip' => $ip,
+            'access_count' => $this->access_count + 1,
+            'is_used' => $this->access_count + 1 >= $this->max_access_count
+        ]);
+    }
+
+    /**
+     * Decrypt the shared content using the sharing key.
+     */
+    public function decryptSharedContent()
+    {
+        try {
+            $data = base64_decode($this->encrypted_content);
+            $iv = substr($data, 0, 16);
+            $encrypted = substr($data, 16);
+            $decrypted = openssl_decrypt($encrypted, 'AES-256-CBC', $this->sharing_key, 0, $iv);
+
+            if ($decrypted === false) {
+                throw new \Exception('Failed to decrypt shared content');
+            }
+
+            return $decrypted;
+        } catch (\Exception $e) {
+            throw new \Exception('Failed to decrypt shared content: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate a unique sharing token.
+     */
+    public static function generateToken()
+    {
+        do {
+            $token = bin2hex(random_bytes(32));
+        } while (self::where('token', $token)->exists());
+
+        return $token;
+    }
+
+    /**
+     * Generate a sharing key.
+     */
+    public static function generateSharingKey()
+    {
+        return bin2hex(random_bytes(16));
+    }
+
+    /**
+     * Encrypt content with a sharing key.
+     */
+    public static function encryptWithSharingKey($content, $sharingKey)
+    {
+        $iv = random_bytes(16);
+        $encrypted = openssl_encrypt($content, 'AES-256-CBC', $sharingKey, 0, $iv);
+        return base64_encode($iv . $encrypted);
+    }
+
+    /**
+     * Scope to get only active (non-expired, non-used) shares.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('expires_at', '>', now())
+                    ->where('is_used', false)
+                    ->whereRaw('access_count < max_access_count');
+    }
+
+    /**
+     * Scope to get expired shares.
+     */
+    public function scopeExpired($query)
+    {
+        return $query->where('expires_at', '<=', now());
+    }
+
+    /**
+     * Scope to get used shares.
+     */
+    public function scopeUsed($query)
+    {
+        return $query->where('is_used', true);
+    }
+}

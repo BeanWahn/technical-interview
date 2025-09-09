@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\SecretsController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -24,4 +25,7 @@ Route::middleware([
 
     Route::get('/secrets', [\App\Http\Controllers\SecretsController::class, 'index'])
         ->name('secrets.index');
+
+    // Public route for accessing shared secrets (no authentication required)
+    Route::get('/shared-secret/{token}', [SecretsController::class, 'accessSharedSecret']);
 });
