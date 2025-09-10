@@ -167,4 +167,33 @@ class Secret extends Model
         $this->shares()->active()->update(['is_disabled' => true]);
     }
 
+    /**
+     * Update all active share links with the current secret content.
+     */
+    public function updateActiveShares()
+    {
+        // Ensure user relationship is loaded for encryption
+        $this->ensureUserLoaded();
+
+        if (!$this->user) {
+            throw new \Exception('Cannot update shares without user relationship');
+        }
+
+        // Get the current decrypted content
+        $currentContent = $this->content;
+
+        // Update all active shares with the new content
+        $activeShares = $this->shares()->active()->get();
+
+        foreach ($activeShares as $share) {
+            // Re-encrypt the current content with the share's existing sharing key
+            $encryptedForSharing = SecretShare::encryptWithSharingKey($currentContent, $share->sharing_key);
+
+            // Update the share's encrypted content
+            $share->update(['encrypted_content' => $encryptedForSharing]);
+        }
+
+        return $activeShares->count();
+    }
+
 }

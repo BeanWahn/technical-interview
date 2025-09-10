@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Illuminate\Contracts\Support\Responsable;
 use App\Http\Controllers\Concerns\AuthorizationHandler;
+use Illuminate\Support\Facades\Log;
 
 class SecretsController extends Controller
 {
@@ -73,9 +74,30 @@ class SecretsController extends Controller
             return $this->secretNotFoundResponse();
         }
 
+        // Update the secret content
         $secret->update(['content' => $request->input('content')]);
 
-        return response()->json(['message' => 'Secret updated successfully']);
+        // Update all active share links with the new content
+        try {
+            $updatedSharesCount = $secret->updateActiveShares();
+
+            return response()->json([
+                'message' => 'Secret updated successfully',
+                'updated_shares' => $updatedSharesCount
+            ]);
+        } catch (\Exception $e) {
+            // Log the error but don't fail the secret update
+            Log::error('Failed to update share links after secret edit', [
+                'secret_id' => $secretId,
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Secret updated successfully, but some share links may not reflect the changes',
+                'updated_shares' => 0
+            ]);
+        }
     }
 
     public function deleteSecret(Request $request, int $secretId): JsonResponse
