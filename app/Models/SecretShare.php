@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Carbon\Carbon;
 
 class SecretShare extends Model
 {
@@ -62,13 +61,6 @@ class SecretShare extends Model
         return $this->expires_at->isPast();
     }
 
-    /**
-     * Check if the share is disabled.
-     */
-    public function isDisabled()
-    {
-        return $this->is_disabled;
-    }
 
     /**
      * Check if the share can still be accessed.
@@ -156,29 +148,6 @@ class SecretShare extends Model
                     ->where('access_count', '<', 1);
     }
 
-    /**
-     * Scope to get expired shares.
-     */
-    public function scopeExpired($query)
-    {
-        return $query->where('expires_at', '<=', now());
-    }
-
-    /**
-     * Scope to get used shares.
-     */
-    public function scopeUsed($query)
-    {
-        return $query->where('is_used', true);
-    }
-
-    /**
-     * Scope to get disabled shares.
-     */
-    public function scopeDisabled($query)
-    {
-        return $query->where('is_disabled', true);
-    }
 
     /**
      * Get the full share URL for this secret share.

@@ -90,44 +90,6 @@ class Secret extends Model
         }
     }
 
-    /**
-     * Get the raw encrypted content from database.
-     */
-    public function getRawContent()
-    {
-        return $this->attributes['content'] ?? null;
-    }
-
-    /**
-     * Set content without automatic encryption (useful for importing encrypted data).
-     */
-    public function setRawContent($encryptedContent)
-    {
-        $this->attributes['content'] = $encryptedContent;
-    }
-
-    /**
-     * Toggle encryption for this secret.
-     */
-    public function toggleEncryption()
-    {
-        // Ensure user relationship is loaded for encryption/decryption
-        if (!$this->relationLoaded('user')) {
-            $this->load('user');
-        }
-
-        if ($this->is_encrypted) {
-            // Decrypt the content
-            $decryptedContent = $this->content;
-            $this->is_encrypted = false;
-            $this->content = $decryptedContent;
-        } else {
-            // Encrypt the content
-            $content = $this->content;
-            $this->is_encrypted = true;
-            $this->content = $content;
-        }
-    }
 
     /**
      * Ensure user relationship is loaded for encryption operations.
@@ -205,11 +167,4 @@ class Secret extends Model
         $this->shares()->active()->update(['is_disabled' => true]);
     }
 
-    /**
-     * Get active shares for this secret.
-     */
-    public function getActiveShares()
-    {
-        return $this->shares()->active()->get();
-    }
 }

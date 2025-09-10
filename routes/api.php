@@ -14,9 +14,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get all secrets for the authenticated user
     Route::get('/secret-content', [SecretsController::class, 'getUserSecrets']);
 
-    // Get all secrets for a specific user (users can only access their own secrets)
-    Route::get('/users/{userId}/secrets', [SecretsController::class, 'getSecretsForUser']);
-
     // Create, update and delete secrets
     Route::post('/secrets', [SecretsController::class, 'createSecret'])
         ->name('secrets.create');

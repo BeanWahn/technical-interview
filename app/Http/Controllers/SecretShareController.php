@@ -5,30 +5,29 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Models\SecretShare;
-use App\Models\Secret;
+use App\Http\Controllers\Concerns\AuthorizationHandler;
 
 class SecretShareController extends Controller
 {
+    use AuthorizationHandler;
     /**
      * Create a shareable link for a secret.
      */
     public function createShareLink(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         $secretId = $request->input('secret_id');
 
         // Find the secret and ensure it belongs to the user
-        $secret = Secret::where('id', $secretId)
-                       ->where('user_id', $user->id)
-                       ->first();
+        $secret = $this->findUserSecret($user, $secretId);
 
         if (!$secret) {
-            return response()->json(['error' => 'Secret not found'], 404);
+            return $this->secretNotFoundResponse();
         }
 
         try {
@@ -82,9 +81,7 @@ class SecretShareController extends Controller
             return response()->json([
                 'content' => $content,
                 'shared_by' => $share->sharedByUser->name,
-                'accessed_at' => $share->accessed_at->toISOString(),
-                'expires_at' => $share->expires_at->toISOString(),
-                'remaining_accesses' => 1 - $share->access_count
+                'accessed_at' => $share->accessed_at->toISOString()
             ]);
 
         } catch (\Exception $e) {
@@ -97,19 +94,17 @@ class SecretShareController extends Controller
      */
     public function getSecretShares(Request $request, int $secretId): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         // Find the secret and ensure it belongs to the user
-        $secret = Secret::where('id', $secretId)
-                       ->where('user_id', $user->id)
-                       ->first();
+        $secret = $this->findUserSecret($user, $secretId);
 
         if (!$secret) {
-            return response()->json(['error' => 'Secret not found'], 404);
+            return $this->secretNotFoundResponse();
         }
 
         $shares = $secret->shares()
@@ -128,19 +123,17 @@ class SecretShareController extends Controller
      */
     public function revokeShare(Request $request, int $shareId): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         // Find the share and ensure it belongs to the user
-        $share = SecretShare::where('id', $shareId)
-                           ->where('shared_by_user_id', $user->id)
-                           ->first();
+        $share = $this->findUserShare($user, $shareId);
 
         if (!$share) {
-            return response()->json(['error' => 'Share not found'], 404);
+            return $this->shareNotFoundResponse();
         }
 
         $share->update(['is_disabled' => true]);
@@ -153,18 +146,16 @@ class SecretShareController extends Controller
      */
     public function reenableShare(Request $request, int $shareId): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
-        $share = SecretShare::where('id', $shareId)
-                           ->where('shared_by_user_id', $user->id)
-                           ->first();
+        $share = $this->findUserShare($user, $shareId);
 
         if (!$share) {
-            return response()->json(['error' => 'Share not found'], 404);
+            return $this->shareNotFoundResponse();
         }
 
         $share->update(['is_disabled' => false]);
@@ -172,28 +163,4 @@ class SecretShareController extends Controller
         return response()->json(['message' => 'Share re-enabled successfully']);
     }
 
-    /**
-     * Revoke all shares for a secret.
-     */
-    public function revokeAllShares(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        // Find the secret and ensure it belongs to the user
-        $secret = Secret::where('id', $request->input('secret_id'))
-                       ->where('user_id', $user->id)
-                       ->first();
-
-        if (!$secret) {
-            return response()->json(['error' => 'Secret not found'], 404);
-        }
-
-        $secret->revokeAllShares();
-
-        return response()->json(['message' => 'All shares revoked successfully']);
-    }
 }

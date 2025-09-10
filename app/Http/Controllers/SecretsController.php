@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Secret;
-use App\Models\SecretShare;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Illuminate\Contracts\Support\Responsable;
+use App\Http\Controllers\Concerns\AuthorizationHandler;
 
 class SecretsController extends Controller
 {
+    use AuthorizationHandler;
     public function index(): Responsable
     {
         return Inertia::render('Secrets');
@@ -23,10 +24,10 @@ class SecretsController extends Controller
      */
     public function getUserSecrets(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         // Get all secrets for the authenticated user
@@ -38,47 +39,12 @@ class SecretsController extends Controller
         return response()->json($secrets);
     }
 
-    /**
-     * Get all secrets for a specific user (admin functionality).
-     */
-    public function getSecretsForUser(Request $request, int $userId): JsonResponse
-    {
-        $authenticatedUser = $request->user();
-
-        if (!$authenticatedUser) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        // Check if the user exists first
-        $user = \App\Models\User::find($userId);
-
-        if (!$user) {
-            return response()->json(['error' => 'User not found'], 404);
-        }
-
-        // For now, only allow users to access their own secrets
-        // You can modify this to add admin permissions later
-        if ($authenticatedUser->id !== $userId) {
-            return response()->json(['error' => 'Forbidden - You can only access your own secrets'], 403);
-        }
-
-        $secrets = $user->secrets()
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'user_id' => $userId,
-            'secrets' => $secrets,
-            'count' => $secrets->count()
-        ]);
-    }
-
     public function createSecret(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         // Encrypt content using user's encryption key
@@ -95,18 +61,16 @@ class SecretsController extends Controller
 
     public function updateSecret(Request $request, int $secretId): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
-        $secret = Secret::where('id', $secretId)
-                       ->where('user_id', $user->id)
-                       ->first();
+        $secret = $this->findUserSecret($user, $secretId);
 
         if (!$secret) {
-            return response()->json(['error' => 'Secret not found'], 404);
+            return $this->secretNotFoundResponse();
         }
 
         $secret->update(['content' => $request->input('content')]);
@@ -116,18 +80,16 @@ class SecretsController extends Controller
 
     public function deleteSecret(Request $request, int $secretId): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->getAuthenticatedUser($request);
 
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
-        $secret = Secret::where('id', $secretId)
-                       ->where('user_id', $user->id)
-                       ->first();
+        $secret = $this->findUserSecret($user, $secretId);
 
         if (!$secret) {
-            return response()->json(['error' => 'Secret not found'], 404);
+            return $this->secretNotFoundResponse();
         }
 
         $secret->delete();
