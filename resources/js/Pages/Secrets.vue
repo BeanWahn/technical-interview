@@ -89,15 +89,18 @@ onMounted(async () => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <!-- Create Secret Form -->
-                    <form @submit.prevent="newSecret.trim() && createSecret()" class="flex items-center mb-6">
+                    <form @submit.prevent="newSecret.trim() && createSecret()" class="flex mb-6 sm:items-center sm:flex-row flex-col items-start">
                         <input
+                            id="newSecret"
+                            name="newSecret"
                             class="border border-gray-300 rounded-md p-2"
                             type="text"
                             v-model="newSecret"
                             placeholder="Enter your secret"
                         />
                         <button
-                            class="ml-4 bg-blue-500 text-white px-4 py-2 rounded-md"
+                            id="createNewSecret"
+                            class="sm:mt-0 mt-4 sm:ml-4 ml-0 bg-blue-500 text-white px-4 py-2 rounded-md"
                             :class="{ 'opacity-50 cursor-not-allowed': !newSecret.trim() }"
                             type="submit"
                             :disabled="!newSecret.trim()"
