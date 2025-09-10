@@ -107,7 +107,9 @@ class SecretsController extends Controller
 
             return response()->json([
                 'message' => 'Secret updated successfully',
-                'updated_shares' => $updatedSharesCount
+                'updated_shares' => $updatedSharesCount,
+                'new_decrypted_content' => $secret->getDecryptedContent(),
+                'new_encrypted_content' => $secret->getEncryptedContent()
             ]);
         } catch (\Exception $e) {
             // Log the error but don't fail the secret update

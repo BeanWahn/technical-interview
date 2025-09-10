@@ -46,10 +46,7 @@ const handleEdit = async (updatedSecret) => {
             secrets.value[index] = { ...secrets.value[index], ...response.data }
         }
 
-        secrets.value = secrets.value.map(s => s.id === updatedSecret.id ? { ...s, content: updatedSecret.content } : s)
-
-        console.log(secrets.value)
-
+        secrets.value = secrets.value.map(s => s.id === updatedSecret.id ? { ...s, decrypted_content: response.data.new_decrypted_content, encrypted_content: response.data.new_encrypted_content } : s)
     } catch (error) {
         console.error('Error updating secret:', error)
     }
