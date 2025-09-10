@@ -13,6 +13,10 @@ class Secret extends Model
 
     protected $fillable = ['content', 'user_id', 'is_encrypted'];
 
+    protected $casts = [
+        'is_encrypted' => 'boolean',
+    ];
+
     /**
      * Get the decrypted content attribute.
      */
@@ -99,6 +103,43 @@ class Secret extends Model
         if (!$this->relationLoaded('user')) {
             $this->load('user');
         }
+    }
+
+    /**
+     * Get the encrypted content (raw from database).
+     */
+    public function getEncryptedContent()
+    {
+        return $this->attributes['content'] ?? null;
+    }
+
+    /**
+     * Get the decrypted content.
+     */
+    public function getDecryptedContent()
+    {
+        if ($this->is_encrypted && $this->attributes['content']) {
+            try {
+                // Ensure user relationship is loaded
+                $this->ensureUserLoaded();
+
+                // Use user-specific encryption if user exists
+                if ($this->user) {
+                    return $this->user->decryptContent($this->attributes['content']);
+                } else {
+                    // Fallback to global encryption for backward compatibility
+                    return Crypt::decryptString($this->attributes['content']);
+                }
+            } catch (DecryptException $e) {
+                // If decryption fails, return the original value
+                return $this->attributes['content'];
+            } catch (\Exception $e) {
+                // If user-specific decryption fails, return the original value
+                return $this->attributes['content'];
+            }
+        }
+
+        return $this->attributes['content'] ?? null;
     }
 
     public function user()

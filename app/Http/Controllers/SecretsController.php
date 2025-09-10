@@ -35,7 +35,19 @@ class SecretsController extends Controller
         $secrets = $user->secrets()
             ->orderBy('created_at', 'desc')
             ->with('shares')
-            ->get();
+            ->get()
+            ->map(function ($secret) {
+                return [
+                    'id' => $secret->id,
+                    'user_id' => $secret->user_id,
+                    'is_encrypted' => $secret->is_encrypted,
+                    'encrypted_content' => $secret->getEncryptedContent(),
+                    'decrypted_content' => $secret->getDecryptedContent(),
+                    'created_at' => $secret->created_at,
+                    'updated_at' => $secret->updated_at,
+                    'shares' => $secret->shares
+                ];
+            });
 
         return response()->json($secrets);
     }
@@ -57,7 +69,19 @@ class SecretsController extends Controller
             'is_encrypted' => true
         ])->load('shares');
 
-        return response()->json($secret);
+        // Return both encrypted and decrypted content
+        $secretData = [
+            'id' => $secret->id,
+            'user_id' => $secret->user_id,
+            'is_encrypted' => $secret->is_encrypted,
+            'encrypted_content' => $secret->getEncryptedContent(),
+            'decrypted_content' => $secret->getDecryptedContent(),
+            'created_at' => $secret->created_at,
+            'updated_at' => $secret->updated_at,
+            'shares' => $secret->shares
+        ];
+
+        return response()->json($secretData);
     }
 
     public function updateSecret(Request $request, int $secretId): JsonResponse

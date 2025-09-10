@@ -6,7 +6,7 @@
                 <div class="mb-2">
                     <!-- Display mode -->
                     <div v-if="!isEditing" class="text-sm text-gray-700 bg-gray-50 p-3 rounded border font-mono">
-                        {{ secret.content || 'No content' }}
+                        {{ displayContent || 'No content' }}
                     </div>
                     <!-- Edit mode -->
                     <div v-else>
@@ -30,6 +30,23 @@
                     <span v-if="secret.updated_at !== secret.created_at">
                         Updated: {{ formatDate(secret.updated_at) }}
                     </span>
+                </div>
+
+                <!-- Encryption Toggle -->
+                <div v-if="secret.is_encrypted" class="mt-2">
+                    <button
+                        @click="toggleEncryptionView"
+                        class="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        <svg v-if="!showDecrypted" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <svg v-else class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                        </svg>
+                        {{ showDecrypted ? 'Hide' : 'Show' }} {{ showDecrypted ? 'Encrypted' : 'Decrypted' }}
+                    </button>
                 </div>
             </div>
 
@@ -65,7 +82,7 @@
                     <!-- Submit Button -->
                     <button
                         @click="submitEdit"
-                        :disabled="!editContent.trim() || editContent === secret.content || isSaving"
+                        :disabled="!editContent.trim() || editContent === (secret.decrypted_content || secret.encrypted_content) || isSaving"
                         class="inline-flex items-center px-3 py-1.5 border border-green-300 shadow-sm text-xs font-medium rounded text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <svg v-if="!isSaving" class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -222,7 +239,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, onMounted, watch, nextTick } from 'vue'
+import { defineProps, defineEmits, ref, computed, onMounted, watch, nextTick } from 'vue'
 import axios from 'axios'
 
 // Props
@@ -245,6 +262,7 @@ const isEditing = ref(false)
 const editContent = ref('')
 const editTextarea = ref(null)
 const isSaving = ref(false)
+const showDecrypted = ref(false) // Show encrypted content by default
 
 const showToast = (message) => {
     toastVisible.value = true
@@ -254,10 +272,24 @@ const showToast = (message) => {
     }, 3000)
 }
 
+// Computed property for display content
+const displayContent = computed(() => {
+    if (props.secret.is_encrypted) {
+        return showDecrypted.value ? props.secret.decrypted_content : props.secret.encrypted_content
+    }
+    return props.secret.decrypted_content || props.secret.encrypted_content
+})
+
+// Toggle encryption view
+const toggleEncryptionView = () => {
+    showDecrypted.value = !showDecrypted.value
+}
+
 // Edit mode functions
 const startEdit = () => {
     isEditing.value = true
-    editContent.value = props.secret.content
+    // Use decrypted content for editing
+    editContent.value = props.secret.decrypted_content || props.secret.encrypted_content
     // Focus the textarea after the DOM updates
     nextTick(() => {
         if (editTextarea.value) {
@@ -273,7 +305,8 @@ const cancelEdit = () => {
 }
 
 const submitEdit = async () => {
-    if (editContent.value.trim() && editContent.value !== props.secret.content) {
+    const currentContent = props.secret.decrypted_content || props.secret.encrypted_content
+    if (editContent.value.trim() && editContent.value !== currentContent) {
         isSaving.value = true
         try {
             // Emit the edit event with the updated secret
