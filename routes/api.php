@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SecretsController;
+use App\Http\Controllers\SecretShareController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -16,7 +17,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get all secrets for a specific user (users can only access their own secrets)
     Route::get('/users/{userId}/secrets', [SecretsController::class, 'getSecretsForUser']);
 
-    // CRUD routes for secrets
+    // Create, update and delete secrets
     Route::post('/secrets', [SecretsController::class, 'createSecret'])
         ->name('secrets.create');
     Route::put('/secrets/{secretId}', [SecretsController::class, 'updateSecret'])
@@ -24,12 +25,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/secrets/{secretId}', [SecretsController::class, 'deleteSecret'])
         ->name('secrets.delete');
 
-    // Secret sharing routes
-    Route::post('/secrets/{secretId}/shares', [SecretsController::class, 'createShare']);
-    Route::get('/secrets/{secretId}/shares', [SecretsController::class, 'getSecretShares']);
-    Route::delete('/shares/{shareId}', [SecretsController::class, 'revokeShare']);
-    Route::delete('/secrets/{secretId}/shares', [SecretsController::class, 'revokeAllShares']);
-
-    Route::post('/generate-share-link', [\App\Http\Controllers\SecretsController::class, 'createShareLink'])
-        ->name('generate-share-link');
+    // Create, get and revoke share links
+    Route::post('/secrets/{secretId}/shares', [SecretShareController::class, 'createShareLink']);
+    Route::get('/secrets/{secretId}/shares', [SecretShareController::class, 'getSecretShares']);
+    Route::put('/shares/{shareId}/revoke', [SecretShareController::class, 'revokeShare']);
+    Route::put('/shares/{shareId}/reenable', [SecretShareController::class, 'reenableShare']);
 });

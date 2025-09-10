@@ -164,15 +164,6 @@ class Secret extends Model
             throw new \Exception('Cannot share secret without user relationship');
         }
 
-        // Default options
-        $defaultOptions = [
-            'expires_in_hours' => 24,
-            'max_access_count' => 1,
-            'notes' => null
-        ];
-
-        $options = array_merge($defaultOptions, $options);
-
         // Generate unique token and sharing key
         $token = SecretShare::generateToken();
         $sharingKey = SecretShare::generateSharingKey();
@@ -190,9 +181,9 @@ class Secret extends Model
             'shared_by_user_id' => $this->user->id,
             'encrypted_content' => $encryptedForSharing,
             'sharing_key' => $sharingKey,
-            'expires_at' => now()->addHours($options['expires_in_hours']),
-            'max_access_count' => $options['max_access_count'],
-            'notes' => $options['notes']
+            'access_count' => 0,
+            'is_used' => false,
+            'expires_at' => now()->addHours(24)
         ]);
 
         return $share;
@@ -211,7 +202,7 @@ class Secret extends Model
      */
     public function revokeAllShares()
     {
-        $this->shares()->active()->update(['is_used' => true]);
+        $this->shares()->active()->update(['is_disabled' => true]);
     }
 
     /**

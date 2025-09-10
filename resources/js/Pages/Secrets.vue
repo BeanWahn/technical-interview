@@ -9,18 +9,24 @@ const secrets = ref([])
 const loading = ref(true)
 const newSecret = ref('')
 
+
 const createSecret = async () => {
     const response = await axios.post('/api/secrets', {
         content: newSecret.value
     })
-    secrets.value.push(response.data)
+    secrets.value.unshift(response.data)
 }
 
 const handleShare = async (secret) => {
     try {
-        const response = await axios.post('/api/generate-share-link', {
+        const response = await axios.post('/api/secrets/' + secret.id + '/shares', {
             secret_id: secret.id
         })
+        if(secret.shares) {
+            secret.shares.push(response.data.share)
+        } else {
+            secret.shares = [response.data.share]
+        }
 
     } catch (error) {
         console.error('Error creating share:', error)
@@ -28,9 +34,25 @@ const handleShare = async (secret) => {
 }
 
 // Event handlers
-const handleEdit = (secret) => {
-    console.log('Edit secret:', secret)
-    // Implement edit functionality
+const handleEdit = async (updatedSecret) => {
+    try {
+        const response = await axios.put(`/api/secrets/${updatedSecret.id}`, {
+            content: updatedSecret.content
+        })
+
+        // Update the secret in the local array
+        const index = secrets.value.findIndex(s => s.id === updatedSecret.id)
+        if (index !== -1) {
+            secrets.value[index] = { ...secrets.value[index], ...response.data }
+        }
+
+        secrets.value = secrets.value.map(s => s.id === updatedSecret.id ? { ...s, content: updatedSecret.content } : s)
+
+        console.log(secrets.value)
+
+    } catch (error) {
+        console.error('Error updating secret:', error)
+    }
 }
 
 const handleDelete = (secret) => {
@@ -57,6 +79,7 @@ onMounted(async () => {
 </script>
 
 <template>
+
     <AppLayout title="Secrets">
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -69,9 +92,21 @@ onMounted(async () => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <!-- Create Secret Form -->
-                    <form @submit.prevent="createSecret" class="flex items-center mb-6">
-                        <input class="border border-gray-300 rounded-md p-2" type="text" v-model="newSecret" />
-                        <button class="ml-4 bg-blue-500 text-white px-4 py-2 rounded-md" type="submit">Create New Secret</button>
+                    <form @submit.prevent="newSecret.trim() && createSecret()" class="flex items-center mb-6">
+                        <input
+                            class="border border-gray-300 rounded-md p-2"
+                            type="text"
+                            v-model="newSecret"
+                            placeholder="Enter your secret"
+                        />
+                        <button
+                            class="ml-4 bg-blue-500 text-white px-4 py-2 rounded-md"
+                            :class="{ 'opacity-50 cursor-not-allowed': !newSecret.trim() }"
+                            type="submit"
+                            :disabled="!newSecret.trim()"
+                        >
+                            Create New Secret
+                        </button>
                     </form>
 
                     <!-- Loading State -->
@@ -79,7 +114,6 @@ onMounted(async () => {
                         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                         <span class="ml-2 text-gray-600">Loading secrets...</span>
                     </div>
-                    <!-- Secrets List -->
                     <SecretsList
                         @share="handleShare"
                         v-else

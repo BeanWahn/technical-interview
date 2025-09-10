@@ -19,17 +19,16 @@ class SecretShare extends Model
         'expires_at',
         'accessed_at',
         'accessed_ip',
-        'is_used',
-        'max_access_count',
         'access_count',
-        'notes'
+        'is_used',
+        'is_disabled'
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
         'accessed_at' => 'datetime',
         'is_used' => 'boolean',
-        'max_access_count' => 'integer',
+        'is_disabled' => 'boolean',
         'access_count' => 'integer'
     ];
 
@@ -37,6 +36,7 @@ class SecretShare extends Model
         'sharing_key',
         'encrypted_content'
     ];
+    protected $appends = ['url', 'is_expired'];
 
     /**
      * Get the secret that is being shared.
@@ -57,9 +57,17 @@ class SecretShare extends Model
     /**
      * Check if the share is expired.
      */
-    public function isExpired()
+    public function getIsExpiredAttribute()
     {
         return $this->expires_at->isPast();
+    }
+
+    /**
+     * Check if the share is disabled.
+     */
+    public function isDisabled()
+    {
+        return $this->is_disabled;
     }
 
     /**
@@ -67,9 +75,10 @@ class SecretShare extends Model
      */
     public function canBeAccessed()
     {
-        return !$this->isExpired() &&
+        return !$this->is_expired &&
                !$this->is_used &&
-               $this->access_count < $this->max_access_count;
+               !$this->is_disabled &&
+               $this->access_count < 1;
     }
 
     /**
@@ -81,7 +90,7 @@ class SecretShare extends Model
             'accessed_at' => now(),
             'accessed_ip' => $ip,
             'access_count' => $this->access_count + 1,
-            'is_used' => $this->access_count + 1 >= $this->max_access_count
+            'is_used' => $this->access_count + 1 >= 1
         ]);
     }
 
@@ -137,13 +146,14 @@ class SecretShare extends Model
     }
 
     /**
-     * Scope to get only active (non-expired, non-used) shares.
+     * Scope to get only active (non-expired, non-used, non-disabled) shares.
      */
     public function scopeActive($query)
     {
         return $query->where('expires_at', '>', now())
                     ->where('is_used', false)
-                    ->whereRaw('access_count < max_access_count');
+                    ->where('is_disabled', false)
+                    ->where('access_count', '<', 1);
     }
 
     /**
@@ -160,5 +170,24 @@ class SecretShare extends Model
     public function scopeUsed($query)
     {
         return $query->where('is_used', true);
+    }
+
+    /**
+     * Scope to get disabled shares.
+     */
+    public function scopeDisabled($query)
+    {
+        return $query->where('is_disabled', true);
+    }
+
+    /**
+     * Get the full share URL for this secret share.
+     *
+     * @return string
+     */
+    public function getUrlAttribute()
+    {
+        $appUrl = rtrim(config('app.url'), '/');
+        return $appUrl . '/shared-secret/' . $this->token;
     }
 }

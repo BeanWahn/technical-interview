@@ -42,7 +42,7 @@ import SecretCard from './SecretCard.vue'
 // Props
 const props = defineProps({
     secrets: {
-        type: Object,
+        type: Array,
         default: () => [],
         required: true
     }
